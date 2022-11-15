@@ -1,6 +1,6 @@
 FROM golang:alpine as regctl-build
 
-RUN wget -O- https://github.com/kaufland-ecommerce-security/docker-hardening-challenge/blob/main/regclient-main.tar.gz?raw=true > regclient-main.tar.gz && \
+RUN wget -O- https://github.com/kaufland-ecommerce-security/docker-hardening-challenge/blob/regctlbuild/regclient-main.tar.gz?raw=true > regclient-main.tar.gz && \
     tar -xzf regclient-main.tar.gz && \
     cd regclient-main  && \
     apk add --no-cache ca-certificates make && \
