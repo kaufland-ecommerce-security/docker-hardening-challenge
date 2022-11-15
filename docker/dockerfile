@@ -1,0 +1,41 @@
+FROM golang:alpine as regctl-build
+
+RUN wget -O- https://github.com/kaufland-ecommerce-security/docker-hardening-challenge/blob/main/regclient-main.tar.gz?raw=true > regclient-main.tar.gz && \
+    tar -xzf regclient-main.tar.gz && \
+    cd regclient-main  && \
+    apk add --no-cache ca-certificates make && \
+    make vendor bin/regctl && \
+    ls -la /go/regclient-main/bin/
+
+FROM frolvlad/alpine-python3
+
+ARG CLOUD_SDK_VERSION=405.0.0
+ENV APP_DIR=/app/docker-challenge/ \
+    CLOUD_SDK_VERSION=$CLOUD_SDK_VERSION \
+    PATH=/google-cloud-sdk/bin:/scripts:$VIRTUAL_ENV/bin:$PATH 
+
+RUN apk update && apk upgrade && \
+    apk add --no-cache --update curl bash libstdc++ git sqlite-dev sqlite libffi-dev openssl-dev g++ git musl-dev && \
+    rm /var/cache/apk/* && \
+    curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-${CLOUD_SDK_VERSION}-linux-x86_64.tar.gz && \
+    tar xzf google-cloud-sdk-${CLOUD_SDK_VERSION}-linux-x86_64.tar.gz && \
+    rm google-cloud-sdk-${CLOUD_SDK_VERSION}-linux-x86_64.tar.gz && \
+    gcloud config set metrics/environment github_docker_image && \
+    gcloud components install kubectl && \
+    gcloud components install gke-gcloud-auth-plugin && \
+    gcloud --version
+
+COPY docker/requirements.txt requirements.txt    
+COPY ./* "${APP_DIR}"
+COPY --from=regctl-build /go/regclient-main/bin/* /usr/local/bin/
+
+ENV PYTHONUNBUFFERED=TRUE \
+    FLASK_DEBUG=1 \
+    PYTHONPATH=$PYTHONPATH:/app/docker-challenge 
+
+RUN pip3 install --no-cache-dir -r requirements.txt && rm requirements.txt
+
+WORKDIR "${APP_DIR}"
+EXPOSE 5001
+
+CMD ["python3", "flaskapp.py"]
